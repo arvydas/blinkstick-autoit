@@ -1,3 +1,22 @@
+;  Copyright 2013 by Agile Innovative Ltd
+; 
+;  This file is part of BlinkStick AutoIt library.
+; 
+;  BlinkStick AutoIt library is free software: you can redistribute 
+;  it and/or modify it under the terms of the GNU General Public License as published 
+;  by the Free Software Foundation, either version 3 of the License, or (at your option) 
+;  any later version.
+; 		
+;  BlinkStick AutoIt library is distributed in the hope that it will be useful, but 
+;  WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;  FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+; 
+;  You should have received a copy of the GNU General Public License along with 
+;  BlinkStick AutoIt library. If not, see http:; www.gnu.org/licenses/.
+
+;  Based on the generic code for HID device from AutoIt forum user dennn66
+;  http://www.autoitscript.com/forum/topic/135815-hid-data-exchange-w-custom-usb-device/
+
 #include <StructureConstants.au3>
 #Include <WinAPI.au3>
 
@@ -40,62 +59,109 @@ Global Const $tagHIDP_CAPS = _
 Opt("MustDeclareVars", 1)
 Global $strDev
 Global $res, $WinAPI_Error
-Local $hand
+Global $hand
 
-_GetHIDDevInstByVidPid(0x20A0, 0x41E5)
-$hand = OpenHID($strDev)
-If $hand <> $INVALID_HANDLE_VALUE Then
-   Local $CapsKeyboard = DllStructCreate($tagHIDP_CAPS)
-   HidD_GetCAPS($hand, DllStructGetPtr($CapsKeyboard))
-	  ConsoleWrite('Usage = ' & hex(DllStructGetData($CapsKeyboard, 'Usage'), 8)  &  @LF)
-	  ConsoleWrite('UsagePage = ' & hex(DllStructGetData($CapsKeyboard, 'UsagePage'), 8)  &  @LF)
-	  ConsoleWrite('InputReportLength = ' & hex(DllStructGetData($CapsKeyboard, 'InputReportByteLength'), 4)  &  @LF)
-	  ConsoleWrite('OutputReportLength = ' & hex(DllStructGetData($CapsKeyboard, 'OutputReportByteLength'), 4)  &  @LF)
-	  ConsoleWrite('FeatureReportLength = ' & hex(DllStructGetData($CapsKeyboard, 'FeatureReportByteLength'), 4)  &  @LF)
-	  ConsoleWrite('Reserved = ' & hex(DllStructGetData($CapsKeyboard, 'Reserved'), 4)  &  @LF)
-	  ConsoleWrite('NumberLinkCollectionNodes = ' & hex(DllStructGetData($CapsKeyboard, 'NumberLinkCollectionNodes'), 4)  &  @LF)
-	  ConsoleWrite('NumberInputButtonCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberInputButtonCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberInputValueCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberInputValueCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberInputDataIndices = ' & hex(DllStructGetData($CapsKeyboard, 'NumberInputDataIndices'), 4)  &  @LF)
-	  ConsoleWrite('NumberOutputButtonCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberOutputButtonCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberOutputValueCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberOutputValueCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberOutputDataIndices = ' & hex(DllStructGetData($CapsKeyboard, 'NumberOutputDataIndices'), 4)  &  @LF)
-	  ConsoleWrite('NumberFeatureButtonCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberFeatureButtonCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberFeatureValueCaps = ' & hex(DllStructGetData($CapsKeyboard, 'NumberFeatureValueCaps'), 4)  &  @LF)
-	  ConsoleWrite('NumberFeatureDataIndices = ' & hex(DllStructGetData($CapsKeyboard, 'NumberFeatureDataIndices'), 4)  & @LF)
+; ********************************************************************************************************
+;									BlinkStick functions
+; ********************************************************************************************************
 
-   ;ConsoleWrite(@LF & 'Get: ' & DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') & @LF)
+Func FindBlinkStick()
+   _GetHIDDevInstByVidPid(0x20A0, 0x41E5)
+   $hand = OpenHID($strDev)
+   Return $hand <> $INVALID_HANDLE_VALUE
+EndFunc
 
-   Local $ReportBufferW = DllStructCreate('byte reportID; byte report['  & DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1 & ']')  ;/* 128 ?????? + ????? ??? dummy ?????? ID */
-   If @ERROR Then
-     MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
-   EndIf
-   DllStructSetData($ReportBufferW, 'reportID', 0x01)
-   
-   DllStructSetData($ReportBufferW, 'report', 0x00, 1)
-   DllStructSetData($ReportBufferW, 'report', 0x00, 2)
-   DllStructSetData($ReportBufferW, 'report', 0xFF, 3)
-   
-   For $X = 4 to DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1
-     DllStructSetData($ReportBufferW, 'report', 0x00, $X)
+Func SetColor($r, $g, $b)
+   If $hand <> $INVALID_HANDLE_VALUE Then
+	  ; Create report buffer
+	  Local $ReportBufferW = DllStructCreate('byte reportID; byte report[32]')
+	  If @ERROR Then
+		MsgBox(0,"","0004 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+		Return
+	  EndIf
+	  DllStructSetData($ReportBufferW, 'reportID', 0x01)
+	  
+	  ; Set RGB color
+	  DllStructSetData($ReportBufferW, 'report', $r, 1)
+	  DllStructSetData($ReportBufferW, 'report', $g, 2)
+	  DllStructSetData($ReportBufferW, 'report', $b, 3)
+	  
+	  ; Fill out the rest of the report with zeros
+	  For $X = 4 to 32
+		DllStructSetData($ReportBufferW, 'report', 0x00, $X)
+	  Next
+	  
+	  ; Send report to the device
+	  HidD_SetFeature( $hand, $ReportBufferW)
+   EndIf	  
+EndFunc
+
+Func TurnOff()
+   SetColor(0x00, 0x00, 0x00)
+EndFunc
+
+Func BlinkColor($r, $g, $b, $delay, $times)
+   For $X = 1 to $times
+	  SetColor($r, $g, $b)
+	  Sleep($delay)
+	  TurnOff()
+	  Sleep($delay)
    Next
-   ;DllStructSetData($ReportBufferW, 'report', 0x16, 3)
+EndFunc
 
-   ConsoleWrite(@LF & 'Set: ' & hex (DllStructGetData($ReportBufferW, 'report'), DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1 ) & @LF )
-   HidD_SetFeature( $hand, $ReportBufferW)
+Func PulseColor($r, $g, $b, $times)
+   Local $rr = 0
+   Local $gg = 0
+   Local $bb = 0
    
-   ;HidD_GetFeature( $hand, $ReportBufferW)
-   ;ConsoleWrite(@LF & 'Get: ' & hex(DllStructGetData($ReportBufferW, 'report'), DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1 ) & @LF)
+   TurnOff()
+   
+   For $X = 1 to $times
+	  While $r <> $rr Or $g <> $gg Or $b <> $bb
+		 if $rr < $r Then
+			$rr = $rr + 1
+		 EndIf
+		 
+		 if $gg < $g Then
+			$gg = $gg + 1
+		 EndIf
 
-   ;DllStructSetData($ReportBufferW, 'report', 0x00, 3)
-   ;ConsoleWrite(@LF & 'Set: ' & hex (DllStructGetData($ReportBufferW, 'report'), DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1 ) & @LF )
-   ;HidD_SetFeature( $hand, $ReportBufferW)
-   ;HidD_GetFeature( $hand, $ReportBufferW)
-   ;ConsoleWrite(@LF & 'Get: ' & hex(DllStructGetData($ReportBufferW, 'report'), DllStructGetData($CapsKeyboard, 'FeatureReportByteLength') -1 ) & @LF)
+		 if $bb < $b Then
+			$bb = $bb + 1
+		 EndIf
 
+		 SetColor($rr, $gg, $bb)
+		 ;Sleep(1)
+	  WEnd
+	  
+	  While $rr > 0 Or $gg > 0 Or $bb > 0
+		 if $rr > 0 Then
+			$rr = $rr - 1
+		 EndIf
+		 
+		 if $gg > 0 Then
+			$gg = $gg - 1
+		 EndIf
 
-   CloseHID($hand)
-EndIf
+		 if $bb > 0 Then
+			$bb = $bb - 1
+		 EndIf
+
+		 SetColor($rr, $gg, $bb)
+		 ;Sleep(1)
+	  WEnd
+   Next
+EndFunc
+
+Func CloseBlinkStick()
+   If $hand <> $INVALID_HANDLE_VALUE Then
+	  CloseHID($hand)
+   EndIf
+EndFunc
+
+; ********************************************************************************************************
+;									Generic HID code
+; ********************************************************************************************************
 
 Func _GetHIDDevInstByVidPid($VID, $PID)
 
@@ -105,12 +171,12 @@ $tGUID = DllStructCreate($tagGUID)
   
 DllCall("hid.dll", "BOOLEAN", "HidD_GetHidGuid", "HWnd", $GUID)
 If @ERROR Then
-  MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+  MsgBox(0,"","0005 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
 Else
   ;Check for WinAPI error
   Local $WinAPI_Error = _WinAPI_GetLastError()
   If $WinAPI_Error <> 0 Then
-   MsgBox(0,"HidD_GetHidGuid","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+   MsgBox(0,"HidD_GetHidGuid","0001 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
   EndIf
 EndIf
 
@@ -157,12 +223,12 @@ $hDevInfo = $hDevInfo[0]
       Local $kbdAttributes = DllStructCreate($tagHIDD_ATTRIBUTES)
       $res = DllCall("hid.dll", "BOOLEAN", "HidD_GetAttributes", "HWnd", $hDrive, "ptr", DllStructGetPtr($kbdAttributes))
       If @ERROR Then
-       MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+       MsgBox(0,"","0002 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
       Else
        ;Check for WinAPI error
        $WinAPI_Error = _WinAPI_GetLastError()
        If $WinAPI_Error <> 0 Then
-        MsgBox(0,"HidD_GetAttributes","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+        MsgBox(0,"HidD_GetAttributes","0003 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
        Else
         If $res[0] Then     
 ;        ConsoleWrite(DllStructGetData($kbdAttributes, 'Size') & ' -> ')
@@ -211,12 +277,12 @@ Func OpenHID($strDevPath)
 $res = DllCall("kernel32.dll", "ptr", "CreateFile", "str", $strDevPath,          "dword", 0, "dword", BitOR($FILE_SHARE_READ, $FILE_SHARE_WRITE), "ptr",$NULL, "dword", $OPEN_EXISTING, "dword", 0, "ptr", $NULL)
 Debug($res)
 If @ERROR Then
-  MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+  MsgBox(0,"","0006 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
 Else
   ;Check for WinAPI error
   $WinAPI_Error = _WinAPI_GetLastError()
   If $WinAPI_Error <> 0 Then
-   MsgBox(0,"HidD_GetPreparsedData","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+   ;MsgBox(0,"HidD_GetPreparsedData","0007 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
   EndIf
 EndIf
 Return $res[0]
@@ -226,12 +292,12 @@ Func HidD_GetCAPS($hDevice, $pCapsKeyboard)
   $res = DllCall("hid.dll", "int", "HidD_GetPreparsedData", "ptr", $hDevice, "ptr", DllStructGetPtr($pKbdPreparcedData, 'PreparcedData'))
   Debug($res)
   If @ERROR Then
-   MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+   MsgBox(0,"","0008 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
   Else
    ;Check for WinAPI error
    $WinAPI_Error = _WinAPI_GetLastError()
    If $WinAPI_Error <> 0 Then
-    MsgBox(0,"HidD_GetPreparsedData","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+    MsgBox(0,"HidD_GetPreparsedData","0009 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
    Else
     ConsoleWrite(DllStructGetData($pKbdPreparcedData, 'PreparcedData') & @LF)
    EndIf
@@ -241,12 +307,12 @@ Func HidD_GetCAPS($hDevice, $pCapsKeyboard)
   $res = DllCall("hid.dll", "int", "HidP_GetCaps", "ptr", DllStructGetData($pKbdPreparcedData, 'PreparcedData'), "ptr", $pCapsKeyboard)
   Debug($res)
   If @ERROR Then
-   MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+   MsgBox(0,"","0010 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
   Else
    ;Check for WinAPI error
    $WinAPI_Error = _WinAPI_GetLastError()
    If $WinAPI_Error <> 0 Then
-    MsgBox(0,"HidP_GetCaps","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+    MsgBox(0,"HidP_GetCaps","0011Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
    EndIf
   EndIf
 EndFunc
@@ -254,12 +320,12 @@ Func CloseHID($hDevice)
 $res = DllCall("kernel32.dll", "int", "CloseHandle", "ptr", $hDevice)
 Debug($res)
 If @ERROR Then
-  MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+  MsgBox(0,"","0012 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
 Else
   ;Check for WinAPI error
   $WinAPI_Error = _WinAPI_GetLastError()
   If $WinAPI_Error <> 0 Then
-   MsgBox(0,"HidP_GetCaps","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+   MsgBox(0,"HidP_GetCaps","0014 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
   EndIf
 EndIf
 EndFunc
@@ -267,15 +333,15 @@ Func HidD_GetFeature( $hDevice, $tReportBufferR)
 $res = DllCall("hid.dll", "BOOLEAN", "HidD_GetFeature", "HWnd", $hDevice, "PTR", DllStructGetPtr($tReportBufferR), "ulong", DllStructGetSize($tReportBufferR))
 Debug($res)
 If @ERROR Then
-  MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+  MsgBox(0,"","0015 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
 Else
   ;Check for WinAPI error
   $WinAPI_Error = _WinAPI_GetLastError()
   If $WinAPI_Error <> 0 Then
-   MsgBox(0,"HidD_GetFeature","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+   MsgBox(0,"HidD_GetFeature","0016 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
   Else
    if Not $res[0] Then
-    MsgBox(16, "HidD_GetFeature", "Fail")
+    MsgBox(16, "HidD_GetFeature", "0017 Fail")
    EndIf
   EndIf
 EndIf
@@ -283,17 +349,17 @@ EndFunc
 
 Func HidD_SetFeature( $hDevice, $tReportBufferW)
 $res = DllCall("hid.dll", "BOOLEAN", "HidD_SetFeature", "HWnd", $hDevice, "PTR", DllStructGetPtr($tReportBufferW), "ulong", DllStructGetSize($tReportBufferW))
-Debug($res)
+;Debug($res)
 If @ERROR Then
-  MsgBox(0,"","@ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+  MsgBox(0,"","0017 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
 Else
   ;Check for WinAPI error
   $WinAPI_Error = _WinAPI_GetLastError()
   If $WinAPI_Error <> 0 Then
-   MsgBox(0,"HidD_SetFeature","Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
+   MsgBox(0,"HidD_SetFeature","0019 Error " & _WinAPI_GetLastError() & @CRLF & _WinAPI_GetLastErrorMessage()) ;Error 13: The data is invalid.
   Else
    if Not $res[0]  then
-    MsgBox(16, "HidD_SetFeature", "Fail")
+    MsgBox(16, "HidD_SetFeature", "0020 Fail")
    EndIf
   EndIf
 EndIf
