@@ -50,6 +50,20 @@ Set RGB color for BlinkStick
 SetColor($r, $g, $b)
 ```
 
+Set RGB colors for BlinkStick Pro
+
+```
+SetColors($channel, $leds, $r, $g, $b)
+```
+
+Set BlinkStick mode
+
+```
+SetMode($mode)
+```
+
+[More information about BlinkStick modes](https://www.blinkstick.com/help/tutorials/blinkstick-pro-modes)
+
 Turn BlinkStick off
 
 ```

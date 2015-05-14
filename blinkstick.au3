@@ -96,6 +96,46 @@ Func SetColor($r, $g, $b)
    EndIf	  
 EndFunc
 
+Func SetColors($channel, $count, $r, $g, $b)
+   If $hand <> $INVALID_HANDLE_VALUE Then
+	  ; Create report buffer
+	  Local $ReportBufferW = DllStructCreate('byte reportID; byte channel; byte report[24]')
+	  If @ERROR Then
+		MsgBox(0,"","0004 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+		Return
+	  EndIf
+	  DllStructSetData($ReportBufferW, 'reportID', 0x06)
+	  DllStructSetData($ReportBufferW, 'channel', $channel)
+	  
+	  ; Set RGB color
+	  For $X = 0 to $count - 1
+		 DllStructSetData($ReportBufferW, 'report', $g, 1 + $X * 3)
+		 DllStructSetData($ReportBufferW, 'report', $r, 2 + $X * 3)
+		 DllStructSetData($ReportBufferW, 'report', $b, 3 + $X * 3)
+	  Next
+	  
+	  
+	  ; Send report to the device
+	  HidD_SetFeature( $hand, $ReportBufferW)
+   EndIf	  
+EndFunc
+
+Func SetMode($mode)
+   If $hand <> $INVALID_HANDLE_VALUE Then
+	  ; Create report buffer
+	  Local $ReportBufferW = DllStructCreate('byte reportID; byte mode;')
+	  If @ERROR Then
+		MsgBox(0,"","0004 @ERROR: " & @ERROR & @CRLF & "@EXTENDED: " & @EXTENDED)
+		Return
+	  EndIf
+	  DllStructSetData($ReportBufferW, 'reportID', 0x04)
+	  DllStructSetData($ReportBufferW, 'mode', $mode)
+	  
+	  ; Send report to the device
+	  HidD_SetFeature( $hand, $ReportBufferW)
+   EndIf	  
+EndFunc
+
 Func TurnOff()
    SetColor(0x00, 0x00, 0x00)
 EndFunc
